@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Darts Friends — Diagnostic Firebase</title>
+<style>:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color-scheme:dark}body{margin:0;background:#141c19;color:#f1f4e9;padding:20px}.wrap{max-width:740px;margin:auto}h1{font-size:1.6rem}p{color:#c4d1c7;line-height:1.55}.card{background:#22332b;border-radius:14px;padding:18px;margin:15px 0;border:1px solid #41614d}button{background:#f0b85b;color:#1b1710;border:0;font-weight:750;padding:13px 16px;border-radius:11px;cursor:pointer;margin:6px 8px 4px 0}button:disabled{opacity:.5;cursor:not-allowed}code{color:#f1d19b;overflow-wrap:anywhere}.success{color:#9cf1a4}.error{color:#ff9990}.warn{color:#f2cf84}#log{white-space:pre-wrap;overflow-wrap:anywhere;background:#101915;border:1px solid #41574d;border-radius:9px;padding:16px;min-height:100px;font-size:.88rem;line-height:1.65}small{color:#b9c5ba}button.secondary{background:#334b3e;color:white}</style>
+<script src="firebase-config.js"></script>
+</head><body><div class="wrap"><h1>🎯 Darts Friends — Diagnostic Firebase</h1><p>Cette page permet d'identifier pourquoi la création d'une salle privée échoue. Place ce fichier <strong>à la racine du même dépôt GitHub</strong> que ton jeu puis ouvre son adresse GitHub Pages. Aucune clé privée n'est nécessaire.</p><div class="card"><strong>Projet détecté :</strong> <code id="project">...</code><br><strong>Base :</strong> <code id="dburl">...</code><br><strong>Site :</strong> <code id="site">...</code></div><div class="card"><button id="check">1. Tester la connexion</button><button id="create" disabled>2. Tester la création d'une salle</button><button class="secondary" id="copy">Copier le rapport</button><p><small>Le second bouton crée une salle « Diagnostic » sans autre joueur, afin de vérifier les permissions d'écriture. Elle peut ensuite être supprimée manuellement depuis Firebase &gt; Realtime Database &gt; Données.</small></p></div><pre id="log">Prêt à effectuer le diagnostic.</pre><p>Signification habituelle des erreurs : <strong>auth/operation-not-allowed</strong> → activer l'authentification anonyme ; <strong>PERMISSION_DENIED</strong> → règles Realtime Database refusant l'opération ; <strong>auth/unauthorized-domain</strong> → domaine du site à autoriser dans Authentication.</p></div>
+<script type="module">
+const cfg=window.DARTS_FIREBASE_CONFIG;
+const $=id=>document.getElementById(id),log=$('log');
+$('project').textContent=cfg?.projectId||'(aucune configuration)';
+$('dburl').textContent=cfg?.databaseURL||'(aucune configuration)';
+$('site').textContent=location.origin;
+let context=null;
+const say=(m)=>{log.textContent+=(log.textContent.endsWith('\n')?'':'\n')+m;};
+function explain(error){let code=error?.code||'(code non fourni)', msg=error?.message||String(error);say('❌ '+code+' — '+msg);if(/operation-not-allowed/.test(code))say('➜ Firebase Authentication > Sign-in method > Anonyme > Activer.');else if(/unauthorized-domain/.test(code))say('➜ Firebase Authentication > Settings > Authorized domains : ajouter '+location.hostname);else if(/permission[-_]denied|PERMISSION_DENIED/i.test(code+' '+msg))say('➜ Vérifier les règles PUBLIÉES dans Realtime Database > Règles : autorisation des salles rooms/$code et absence de numChildren().');else if(/invalid-api-key|api-key-not-valid/i.test(code+' '+msg))say('➜ Vérifier la clé API Web du projet Firebase.');else say('➜ Copier ce rapport pour diagnostic.');}
+$('check').onclick=async()=>{
+ $('create').disabled=true;log.textContent='Vérification en cours…\n';
+ try{
+ if(!cfg||!cfg.apiKey||cfg.apiKey==='A_REMPLACER'||!cfg.databaseURL)throw new Error('Le fichier firebase-config.js n’est pas correctement renseigné.');
+ say('✓ Configuration présente : '+cfg.projectId);
+ const [app,auth,db]=await Promise.all([import('https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js')]);
+ say('✓ SDK Firebase importé');
+ const instance=app.initializeApp(cfg,'darts-friends-diagnostic');const a=auth.getAuth(instance);
+ await auth.signInAnonymously(a);const uid=a.currentUser.uid;
+ say('✓ Authentification anonyme OK (identifiant : '+uid.slice(0,7)+'…)');
+ const database=db.getDatabase(instance);const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const testCode=Array.from(crypto.getRandomValues(new Uint8Array(7)),v=>alphabet[v%alphabet.length]).join('');
+ const testRef=db.ref(database,'rooms/'+testCode);
+ const snapshot=await db.get(testRef);
+ say('✓ Lecture autorisée pour une salle inexistante (code '+testCode+').');
+ if(snapshot.exists())say('Note : collision improbable de code, le test de création utilisera un nouveau code.');
+ context={uid,db,database};$('create').disabled=false;say('✓ Diagnostic de connexion réussi. Clique sur le bouton 2 pour tester la création.');
+ }catch(e){explain(e);}
+};
+$('create').onclick=async()=>{
+ if(!context)return;const {uid,db,database}=context;$('create').disabled=true;
+ try{
+ const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const code=Array.from(crypto.getRandomValues(new Uint8Array(7)),v=>alphabet[v%alphabet.length]).join('');
+ const room={schema:1,createdAt:Date.now(),host:uid,mode:301,doubleOut:true,force:1,direction:1,status:'lobby',turn:0,seq:0,players:[{uid,name:'Diagnostic',avatar:'stephane',score:301,roundStart:301,darts:0,roundHits:[]}],winner:'',lastHit:null,lastReaction:null};
+ const response=await db.runTransaction(db.ref(database,'rooms/'+code),r=>r===null?room:undefined,{applyLocally:false});
+ if(!response.committed)throw new Error('La transaction n’a pas été validée (code déjà utilisé ou refus)');
+ say('✅ Création de salle réussie ! Code : '+code);say('✅ L’application devrait pouvoir créer une salle avec les mêmes règles.');
+ }catch(e){explain(e);}finally{$('create').disabled=false;}
+};
+$('copy').onclick=async()=>{try{await navigator.clipboard.writeText('Darts Friends — '+location.href+'\nProjet : '+$('project').textContent+'\n'+log.textContent);say('✓ Rapport copié.');}catch{say('Copie manuellement le texte ci-dessus.');}};
+</script></body></html>
