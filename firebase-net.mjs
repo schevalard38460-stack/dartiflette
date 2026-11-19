@@ -23,16 +23,64 @@ export async function connectFirebase(){
 }
 function path(code){return 'rooms/'+code;}
 
-// IMPORTANT : lors d'une première transaction Firebase sur un nouvel appareil,
-// le cache local peut être null alors que la salle existe sur le serveur.
-// Lire d'abord la salle évite que la transaction s'annule à tort.
-// La transaction reste indispensable après cette lecture pour gérer
-// les connexions simultanées sans écraser les autres joueurs.
-async function verifyRoomExists(api, roomRef) {
-  const snapshot = await api.get(roomRef);
-  if (!snapshot.exists()) {
-    throw Error('Salle introuvable sur Firebase. Vérifie le code et demande à l’organisateur de recréer une salle si nécessaire.');
+// Firebase peut appeler la fonction d'une transaction avec null, même
+// lorsqu'une salle existe sur le serveur. Un simple get() ne prépare pas
+// forcément le cache interne utilisé par runTransaction().
+//
+// 1) onValue garde un abonnement ACTIF pendant la transaction : le cache
+//    Firebase dispose alors de l'état de la salle réellement reçu du serveur.
+// 2) Si la première invocation de la transaction reçoit tout de même null,
+//    on s'appuie sur l'instantané reçu par le listener pour amorcer la tentative.
+//    La transaction Firebase reste atomique : si l'état du serveur a changé,
+//    le serveur la refuse et le SDK relance le callback avec le nouvel état.
+// 3) Toute invocation suivante avec null (salle réellement supprimée) s'annule.
+async function withRoomSubscription(api, roomRef, action) {
+  let unsubscribe = () => {};
+  let latest = null;
+  let first = true;
+  const ready = new Promise((resolve, reject) => {
+    unsubscribe = api.onValue(roomRef, snapshot => {
+      latest = snapshot.val();
+      if (first) { first = false; resolve(latest); }
+    }, error => {
+      if (first) { first = false; reject(error); }
+    });
+  });
+  try {
+    const initial = await ready;
+    if (!initial) {
+      throw Error('Salle introuvable sur Firebase. Vérifie le code fourni par l’organisateur.');
+    }
+    return await action(() => latest);
+  } finally {
+    unsubscribe();
   }
+}
+
+async function transactionOnExistingRoom(api, roomRef, update) {
+  return withRoomSubscription(api, roomRef, async getLatest => {
+    let firstCall = true;
+    let issue = '';
+    const result = await api.runTransaction(roomRef, current => {
+      // Cette valeur de substitution est utilisée une seule fois, seulement
+      // si Firebase lance sa première tentative sans données en cache.
+      const room = current === null && firstCall ? getLatest() : current;
+      firstCall = false;
+      if (!room) {
+        issue = 'La salle a été supprimée ou fermée. Demande un nouveau code.';
+        return undefined;
+      }
+      try {
+        issue = '';
+        return update(room);
+      } catch (error) {
+        issue = error.message || String(error);
+        return undefined;
+      }
+    }, {applyLocally: false});
+    if (!result.committed) throw Error(issue || 'Action annulée par Firebase. Réessaie.');
+    return result.snapshot.val();
+  });
 }
 
 export async function createOnlineRoom(name,avatar,mode,doubleOut){
@@ -50,26 +98,13 @@ export async function createOnlineRoom(name,avatar,mode,doubleOut){
 export async function joinOnlineRoom(code,name,avatar){
   const {uid,db,api}=await connectFirebase();
   const ref=api.ref(db,path(code));
-  await verifyRoomExists(api,ref);
-  let issue='';
-  const result=await api.runTransaction(ref,r=>{
-    if(!r){issue='La salle a changé pendant la connexion. Réessaie.';return undefined;}
-    try{return addPlayer(r,uid,name,avatar);}catch(e){issue=e.message;return undefined;}
-  },{applyLocally:false});
-  if(!result.committed)throw Error(issue||'Impossible de rejoindre la salle');
+  await transactionOnExistingRoom(api,ref,r=>addPlayer(r,uid,name,avatar));
   return{code,uid};
 }
 export async function updateRoom(code,change){
   const {uid,db,api}=await connectFirebase();
   const ref=api.ref(db,path(code));
-  await verifyRoomExists(api,ref);
-  let problem='';
-  const result=await api.runTransaction(ref,r=>{
-  if(!r){problem='La salle a changé pendant l’action. Réessaie.';return undefined;}
-    try{return change(r,uid);}catch(e){problem=e.message;return undefined;}
-  },{applyLocally:false});
-  if(!result.committed)throw Error(problem||'Action refusée');
-  return result.snapshot.val();
+  return transactionOnExistingRoom(api,ref,r=>change(r,uid));
 }
 export async function setSettings(code,force,direction){
   return updateRoom(code,(r,uid)=>{
