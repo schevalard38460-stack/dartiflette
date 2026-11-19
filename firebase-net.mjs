@@ -22,6 +22,19 @@ export async function connectFirebase(){
   }catch(e){throw Error('Connexion Firebase impossible : '+(e.code||e.message));}
 }
 function path(code){return 'rooms/'+code;}
+
+// IMPORTANT : lors d'une première transaction Firebase sur un nouvel appareil,
+// le cache local peut être null alors que la salle existe sur le serveur.
+// Lire d'abord la salle évite que la transaction s'annule à tort.
+// La transaction reste indispensable après cette lecture pour gérer
+// les connexions simultanées sans écraser les autres joueurs.
+async function verifyRoomExists(api, roomRef) {
+  const snapshot = await api.get(roomRef);
+  if (!snapshot.exists()) {
+    throw Error('Salle introuvable sur Firebase. Vérifie le code et demande à l’organisateur de recréer une salle si nécessaire.');
+  }
+}
+
 export async function createOnlineRoom(name,avatar,mode,doubleOut){
   const {uid,db,api}=await connectFirebase();
   const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -36,9 +49,11 @@ export async function createOnlineRoom(name,avatar,mode,doubleOut){
 }
 export async function joinOnlineRoom(code,name,avatar){
   const {uid,db,api}=await connectFirebase();
-  const ref=api.ref(db,path(code));let issue='';
+  const ref=api.ref(db,path(code));
+  await verifyRoomExists(api,ref);
+  let issue='';
   const result=await api.runTransaction(ref,r=>{
-    if(!r){issue='Salle introuvable';return undefined;}
+    if(!r){issue='La salle a changé pendant la connexion. Réessaie.';return undefined;}
     try{return addPlayer(r,uid,name,avatar);}catch(e){issue=e.message;return undefined;}
   },{applyLocally:false});
   if(!result.committed)throw Error(issue||'Impossible de rejoindre la salle');
@@ -46,9 +61,11 @@ export async function joinOnlineRoom(code,name,avatar){
 }
 export async function updateRoom(code,change){
   const {uid,db,api}=await connectFirebase();
+  const ref=api.ref(db,path(code));
+  await verifyRoomExists(api,ref);
   let problem='';
-  const result=await api.runTransaction(api.ref(db,path(code)),r=>{
-    if(!r){problem='Salle introuvable';return undefined;}
+  const result=await api.runTransaction(ref,r=>{
+  if(!r){problem='La salle a changé pendant l’action. Réessaie.';return undefined;}
     try{return change(r,uid);}catch(e){problem=e.message;return undefined;}
   },{applyLocally:false});
   if(!result.committed)throw Error(problem||'Action refusée');
