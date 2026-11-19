@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1b211c">
+  <meta name="description" content="Darts Friends : fléchettes 301 et 501 à trois, entre amis, sur Android">
+  <title>Darts Friends • 301 / 501</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="assets/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <script src="firebase-config.js"></script>
+  <script type="module" src="app.mjs"></script>
+</head>
+<body>
+<div class="app-shell">
+  <section class="arena">
+    <div class="arena-top"><span class="mini-mark">D✱F</span><span>LE BAR DES COPAINS</span><span class="prototype">EN LIGNE</span></div>
+    <canvas id="board" aria-label="Fléchettes : placer la fléchette en bas en déplaçant le doigt, puis glisser rapidement vers le haut"></canvas>
+    <div class="aim-help"><strong>1.</strong> Place la fléchette gauche / droite &nbsp; <strong>2.</strong> Glisse vers le haut : vitesse = hauteur, angle = dérive</div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="shot-badge" class="shot-badge" aria-live="polite"></div>
+    <div class="arena-bottom"><span>301 &bull; 501</span><span>🎯 DARTS FRIENDS</span></div>
+  </section>
+  <aside class="panel">
+    <header class="brand"><div class="brand-kicker">UN JEU ENTRE COPAINS</div><h1>DARTS <em>FRIENDS</em><span class="brand-star">✱</span></h1><p>Trois joueurs, une cible, zéro excuse.</p></header>
+    <section id="setup" class="screen">
+      <div class="trio-banner"><img src="assets/trio.webp" alt="Illustration cartoon de Franck, Stéphane et Mathias autour d'une cible"></div>
+      <label>Qui joue ?</label>
+      <div class="avatar-picker" id="avatar-picker">
+        <button class="avatar-choice" type="button" data-avatar="franck" aria-pressed="false"><img src="assets/franck.webp" alt=""><strong>Franck</strong><small>Le grand rieur</small></button>
+        <button class="avatar-choice selected" type="button" data-avatar="stephane" aria-pressed="true"><img src="assets/stephane.webp" alt=""><strong>Stéphane</strong><small>Le calme taquin</small></button>
+        <button class="avatar-choice" type="button" data-avatar="mathias" aria-pressed="false"><img src="assets/mathias.webp" alt=""><strong>Mathias</strong><small>Le rageux</small></button>
+      </div>
+      <label for="nickname">Ton pseudo</label><input id="nickname" maxlength="18" value="Stéphane" autocomplete="off">
+      <div class="two-cols">
+        <div><label for="game-mode">Mode</label><select id="game-mode"><option value="301">301</option><option value="501">501</option></select></div>
+        <div><label for="checkout">Fin de partie</label><select id="checkout"><option value="true">Double out</option><option value="false">Libre</option></select></div>
+      </div>
+      <details class="sensitivity-section"><summary>Réglage solo du lancer</summary>
+        <label>Force <output id="solo-force-value">1.00×</output></label><input id="solo-force" type="range" min="0.5" max="2" step="0.05" value="1">
+        <label>Direction <output id="solo-direction-value">1.00×</output></label><input id="solo-direction" type="range" min="0.5" max="2" step="0.05" value="1">
+      </details>
+      <button id="practice" class="button button-outline" type="button">🎯 S'entraîner seul</button>
+      <div class="separator"><span>JOUER À DISTANCE À TROIS</span></div>
+      <button id="create" class="button button-primary" type="button">Créer une salle privée <span>→</span></button>
+      <div class="joinline"><input id="room-input" maxlength="7" placeholder="CODE À 7 CARACTÈRES" autocapitalize="characters" aria-label="Code de salle"><button id="join" class="button button-small" type="button">Rejoindre</button></div>
+      <p class="footnote" id="online-note">Pour jouer à distance, configurer Firebase une fois puis partager l'adresse du site avec tes amis.</p>
+    </section>
+    <section id="lobby" class="screen hidden">
+      <div class="section-title">SALLE PRIVÉE <span id="room-code">-------</span></div>
+      <p class="hint">Partage le lien ou le code ci-dessus. Chacun choisit son propre avatar.</p>
+      <button id="share" type="button" class="button button-outline">🔗 Copier le lien d'invitation</button>
+      <div id="lobby-players" class="player-list"></div>
+      <div class="sensitivity-section" id="host-controls">
+        <strong>Sensibilité commune pour les 3 joueurs</strong>
+        <label>Force <output id="force-value">1.00×</output></label><input id="force-sensitivity" type="range" min="0.5" max="2" step="0.05" value="1">
+        <label>Direction <output id="direction-value">1.00×</output></label><input id="direction-sensitivity" type="range" min="0.5" max="2" step="0.05" value="1">
+        <button id="save-sensitivity" class="button button-outline" type="button">Appliquer à tous</button>
+      </div>
+      <p id="lobby-note" class="hint">En attente des amis…</p>
+      <button id="start" class="button button-primary hidden" type="button">Lancer la partie à 3 <span>→</span></button>
+      <button id="leave-lobby" class="text-button" type="button">Retour au menu</button>
+    </section>
+    <section id="match" class="screen hidden">
+      <div class="match-top"><div><span class="small-label">MANCHE</span><h2 id="match-title">301</h2></div><div class="match-pills"><span id="room-pill">ENTRAÎNEMENT</span><span id="double-pill">DOUBLE OUT</span><span id="sensitivity-pill">F 1.00× · D 1.00×</span></div></div>
+      <div id="players" class="player-list"></div>
+      <div class="turn-box"><span class="small-label">C'EST AU TOUR DE</span><strong id="turn-name">Toi !</strong><span id="dart-counter">Fléchette 1/3</span></div>
+      <div id="banter" class="banter-controls hidden"><label for="tease-target">CHAMBRER UN COPAIN</label><div class="banter-line"><select id="tease-target" aria-label="Personne à chambrer"></select><button id="tease" class="button button-banter" type="button">😏 Chambrer !</button></div></div>
+      <div class="history"><span class="small-label">DERNIER LANCER</span><strong id="last-shot">À toi !</strong><span class="hint" id="quip"></span></div>
+      <div id="win-banner" class="win-banner hidden"></div>
+      <div class="controls"><button id="restart" class="button button-outline hidden" type="button">Rejouer</button><button id="exit" class="text-button" type="button">Retour au menu</button></div>
+    </section>
+    <footer class="panel-footer">FAIT POUR FRANCK, MATHIAS ET STÉPHANE • SANS PUB</footer>
+  </aside>
+</div>
+</body>
+</html>

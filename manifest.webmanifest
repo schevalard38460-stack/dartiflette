@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Darts Friends — 301 / 501",
+  "short_name": "Darts Friends",
+  "description": "Jeu de fléchettes privé à trois amis",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1b211c",
+  "theme_color": "#1b211c",
+  "icons": [
+    {"src":"assets/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"assets/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}

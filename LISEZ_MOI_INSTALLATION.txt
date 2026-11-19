@@ -1,0 +1,133 @@
+DARTS FRIENDS – JOUER A TROIS SUR ANDROID, GRATUITEMENT
+======================================================
+
+CE QUI EST FOURNI
+-----------------
+Un jeu web installable sur Android (PWA) : 301/501, 3 joueurs à distance,
+code privé de 7 caractères, score en direct, lancer tactile,
+force et direction paramétrables par le créateur de la partie.
+Le jeu ne demande pas de laisser un PC allumé.
+
+IMPORTANT : CE N'EST PAS UN APK NATIF.
+Il est accessible dans Chrome puis peut être ajouté à l'écran d'accueil.
+Le projet Firebase et le site public ne sont PAS créés automatiquement par ce ZIP.
+
+1. CREER LA BASE GRATUITE FIREBASE (5-10 ETAPES)
+------------------------------------------------
+1. Ouvrir https://console.firebase.google.com/ et se connecter à Google.
+2. Ajouter un projet, par exemple « darts-friends-perso ».
+   Ne pas activer Analytics (facultatif pour le jeu).
+3. Vérifier que le projet reste sur le forfait GRATUIT « Spark ».
+4. Authentication > Sign-in method > Ajouter un fournisseur > Anonyme > Activer.
+   Cela permet d'entrer sans créer de compte dans le jeu.
+5. Build > Realtime Database > Créer une base de données.
+   Choisir une région disponible et commencer en « mode verrouillé ».
+6. Onglet Règles : remplacer les règles par le contenu COMPLET du fichier
+   firebase-rules.json fourni. Cliquer sur Publier.
+7. Paramètres du projet (roue dentée) > Général > Vos applications > Web (</>).
+   Enregistrer une nouvelle application « Darts Friends » et copier les
+   paramètres Firebase de l'application Web.
+8. Dans le fichier firebase-config.js de ce ZIP, remplacer les valeurs
+   A_REMPLACER et VOTRE-PROJET par la configuration affichée :
+   apiKey, authDomain, projectId, appId.
+   Inscrire la vraie « databaseURL » : la récupérer sur la page Realtime
+   Database, URL commençant par https:// et se terminant par
+   .firebasedatabase.app ou .firebaseio.com.
+9. Enregistrer le fichier firebase-config.js modifié.
+   Les champs de configuration Web ne sont pas des mots de passe.
+   Ne JAMAIS mettre une private_key, un compte de service, ou un secret
+   administrateur dans le jeu.
+
+2. PUBLIER LE JEU SANS FRAIS SUR GITHUB PAGES
+--------------------------------------------
+1. Créer un compte gratuit sur https://github.com/ (si nécessaire).
+2. Créer un nouveau dépôt public appelé par exemple « darts-friends ».
+   ATTENTION : un dépôt public rend le code et les illustrations publiques.
+   Obtenir l'accord de Franck et Mathias avant de publier leurs portraits
+   cartoon; sinon supprimer ces images/remplacer par avatars génériques.
+3. Dans le dépôt, choisir Add file > Upload files et mettre TOUS les fichiers
+   et dossiers contenus dans le ZIP (index.html, style.css, app.mjs,
+   rules.mjs, firebase-net.mjs, firebase-config.js, firebase-rules.json,
+   manifest.webmanifest, sw.js et le dossier assets/).
+   Il faut les mettre directement à la racine du dépôt : ne pas transférer
+   le ZIP comme un seul fichier.
+4. Cliquer Commit changes.
+5. Settings > Pages > Build and deployment > Source : Deploy from a branch.
+   Branch : main, Folder : /(root), puis Save.
+6. Ouvrir l'adresse donnée par GitHub Pages, sous la forme
+   https://VOTRE-IDENTIFIANT.github.io/darts-friends/
+   (CETTE ADRESSE N'EST QU'UN EXEMPLE, votre URL exacte dépend de votre dépôt.)
+7. Si Firebase signale un domaine non autorisé dans Authentication > Settings,
+   ajouter VOTRE-IDENTIFIANT.github.io dans Authorized domains.
+
+3. INSTALLER SUR LES TROIS TELEPHONES ANDROID
+--------------------------------------------
+1. Ouvrir la même URL GitHub Pages dans Chrome sur les trois smartphones.
+2. Menu Chrome (trois points) > Ajouter à l'écran d'accueil > Installer
+   (ou « Créer un raccourci » selon l'appareil et la version de Chrome).
+3. Chacun choisit son personnage (Franck, Stéphane ou Mathias).
+4. Un joueur clique « Créer une salle privée », choisit 301 ou 501
+   et, s'il le souhaite, l'option Double out.
+5. Il clique « Copier le lien d'invitation » et l'envoie sur WhatsApp.
+   Ou transmet seulement le code de sept caractères.
+6. Les deux amis rejoignent avec leur personnage et leur code.
+7. Le créateur règle la sensibilité Force / Direction, puis clique
+   « Lancer la partie à 3 ».
+8. Chacun prend le tour affiché par le jeu, positionne sa fléchette
+   horizontalement, puis glisse vers le haut. Un geste plus rapide
+   vise plus haut ; une trajectoire inclinée décale l'impact à gauche/droite.
+
+4. DEPANNAGE
+------------
+- « Firebase non configuré » : vérifier firebase-config.js et son upload.
+- « auth/operation-not-allowed » : activer Authentication > Anonyme.
+- « PERMISSION_DENIED » : publier le contenu de firebase-rules.json dans
+  Realtime Database > Règles; vérifier que la base est la bonne.
+- « network-request-failed » : activer Internet sur le téléphone.
+- « Salle introuvable » : vérifier le code à 7 caractères.
+- « Personnage déjà choisi » : chaque ami prend un personnage distinct.
+- « Même compte après réinstallation » : un ID anonyme est mémorisé dans le
+  navigateur. Éviter la navigation privée; les données peuvent être perdues
+  en effaçant le stockage du navigateur.
+- Après correction d'un fichier : republier sur GitHub, puis actualiser Chrome.
+- Si Chrome garde l'ancienne version : actualiser deux fois ou vider les
+  données du site, puis rouvrir l'URL.
+- La synchronisation nécessite Internet. En cas de perte de réseau,
+  retenter une fois la connexion revenue.
+
+5. COUT, SECURITE ET LIMITES
+---------------------------
+- GitHub Pages est gratuit pour un dépôt public sur l'offre GitHub Free.
+- Firebase Realtime Database Spark comporte des quotas sans frais (dont
+  100 connexions simultanées, 1 Go stocké et 10 Go/mois transférés).
+- Ne pas passer au forfait payant « Blaze » si l'objectif est 0 €.
+- Ce prototype convient à trois amis de confiance. Les codes sont privés
+  par défaut au sens pratique, PAS une véritable sécurité cryptographique.
+  Un utilisateur connaissant un code et disposant de l'application peut
+  consulter la salle. Les règles limitent l'accès en écriture aux membres,
+  mais ne garantissent pas l'absence de triche par modification du client.
+- Les parties ne sont pas supprimées automatiquement de Firebase.
+  Supprimer les anciennes salles dans la console Firebase si nécessaire.
+- Ne publier que les portraits dont l'utilisation a été autorisée.
+- Ce paquet n'a pas été testé de bout en bout avec un projet Firebase réel
+  ni sur trois vrais smartphones. Les règles de score et de tour sont testées.
+
+SOURCES OFFICIELLES
+------------------
+https://firebase.google.com/docs/database/web/start
+https://firebase.google.com/docs/auth/web/anonymous-auth
+https://firebase.google.com/docs/database/security
+https://firebase.google.com/pricing
+https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site
+
+NOTES TECHNIQUES
+----------------
+- index.html : point d'entrée du jeu; nécessite tous les fichiers voisins.
+- rules.mjs : calcul scores, tours, score de sortie, bust, sensibilité.
+- firebase-net.mjs : synchronisation Firebase Realtime Database.
+- firebase-rules.json : règles de sécurité Firebase à copier dans sa console.
+- firebase-config.js : configuration de l'application Firebase à remplir.
+- tests/game.test.mjs : tests automatisés avec Node.js :
+  node --test tests/game.test.mjs
+
+Version : Darts Friends Android Web V1.0 – 19 novembre 2026.
