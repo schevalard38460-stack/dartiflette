@@ -83,14 +83,14 @@ async function transactionOnExistingRoom(api, roomRef, update) {
   });
 }
 
-export async function createOnlineRoom(name,avatar,mode,doubleOut){
+export async function createOnlineRoom(name,avatar,mode,doubleOut,maxPlayers=3){
   const {uid,db,api}=await connectFirebase();
   const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   for(let attempt=0;attempt<6;attempt++){
     const random=new Uint8Array(7);crypto.getRandomValues(random);
     const code=Array.from(random,v=>alphabet[v%alphabet.length]).join('');
     const ref=api.ref(db,path(code));
-    const outcome=await api.runTransaction(ref,r=>r===null?makeRoom(uid,name,avatar,mode,doubleOut):undefined,{applyLocally:false});
+    const outcome=await api.runTransaction(ref,r=>r===null?makeRoom(uid,name,avatar,mode,doubleOut,maxPlayers):undefined,{applyLocally:false});
     if(outcome.committed)return{code,uid};
   }
   throw Error('Impossible de créer un code de partie, réessaie.');
@@ -125,4 +125,24 @@ export function listenRoom(code,onState,onError){
     cancel=api.onValue(api.ref(db,path(code)),snap=>onState(snap.val()),error=>onError(error));
   });
   return()=>{cancel();ready.then(()=>cancel()).catch(()=>{});};
+}
+
+// Le mouvement du lanceur circule sur un canal éphémère séparé :
+// pas de transaction sur la salle, 1 événement / 120 ms maximum.
+export async function sendLiveAim(code,payload){
+ const {uid,db,api}=await connectFirebase();
+ return api.set(api.ref(db,`liveRooms/${code}/${uid}`),{
+   x:Number(payload.x.toFixed(3)), y:Number(payload.y.toFixed(3)),
+   phase:payload.phase,at:Date.now(), progress:Number(payload.progress.toFixed(3))
+ });
+}
+export function listenLiveAim(code,onAim,onError){
+ let cancel=()=>{};
+ const ready=connectFirebase().then(({uid,db,api})=>{
+   cancel=api.onValue(api.ref(db,`liveRooms/${code}`),snap=>{
+     const values=Object.entries(snap.val()||{}).map(([id,v])=>({...v,uid:id}));
+     onAim(values);
+   },onError);
+ });
+ return()=>{cancel();ready.then(()=>cancel()).catch(()=>{});};
 }

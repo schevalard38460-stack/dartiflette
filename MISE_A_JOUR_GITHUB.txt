@@ -1,0 +1,28 @@
+DARTS FRIENDS V0.9 — CORRECTIF ORIENTATION DES FLÉCHETTES
+
+Correction : la fléchette ne change plus brutalement d'angle quand elle arrive
+sur la cible. L'angle à l'impact est exactement conservé une fois plantée.
+La courbe de vol, les scores, les ralentis et les bruitages de la V0.8 sont conservés.
+
+INSTALLATION SUR TON SITE EXISTANT
+
+1. Décompresse Darts_Friends_V09_Android_En_Ligne.zip.
+2. Ouvre https://github.com/schevalard38460-stack/dartiflette
+3. À la racine du dépôt, remplace les fichiers du jeu par ceux de ce ZIP.
+   Les changements fonctionnels sont dans app.mjs et flight-path.mjs.
+   Remplace aussi sw.js pour actualiser le cache de l'application Android.
+   Tu peux réutiliser les autres fichiers à l'identique.
+4. IMPORTANT : conserve TON firebase-config.js actuel, ne le remplace pas
+   par le fichier exemple du ZIP. Ne modifie pas les règles Firebase.
+5. Valide les changements (Commit changes) et attends le déploiement GitHub Pages.
+6. Pour tester, ouvre une nouvelle fenêtre privée :
+   https://schevalard38460-stack.github.io/dartiflette/?v=9
+7. Teste « Voir le triple 20 au ralenti », puis une vraie partie.
+
+SUR ANDROID
+Si une ancienne version apparaît malgré la mise à jour, ferme et relance
+l'application. En dernier recours, efface les données du site dans Chrome,
+ou retire l'ancien raccourci et réinstalle depuis l'adresse du jeu.
+
+Aucun serveur payant ni changement d'authentification nécessaire.
+La connexion à 2-4 appareils n'a pas été revérifiée sur le vrai projet Firebase.

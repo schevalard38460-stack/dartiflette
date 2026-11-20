@@ -1,6 +1,6 @@
 // DARTS FRIENDS – règles communes, sans dépendance externe (navigateur et tests Node).
 export const SECTORS = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
-export const AVATARS = {franck:'Franck',stephane:'Stéphane',mathias:'Mathias'};
+export const AVATARS = {franck:'Franck',stephane:'Stéphane',mathias:'Mathias',invite:'Invité'};
 export const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
 export function hitAt(x,y) {
   if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x)>3||Math.abs(y)>3) throw Error('Coordonnées invalides');
@@ -20,20 +20,33 @@ export function targetFromGesture(dx,dy,elapsedMs,startX,height,force=1,directio
   const power=.5+(speed-940)*force/1320; // Valeurs conservées de la V0.3.
   return {x:clamp(startX+(dx/Math.max(-dy,1))*2.35*direction,-2.15,2.15),y:clamp(-1.7+3.4*power,-2.15,2.15),speed,angle:Math.atan2(dx,-dy)*180/Math.PI};
 }
-export function makeRoom(uid,name,avatar,mode=301,doubleOut=true){
+// Flick : seule la fenêtre terminale du geste détermine la puissance et l'angle.
+// Le placement horizontal est indépendant (comme une fléchette tenue en main).
+export function targetFromFlick(samples,startX,height,force=1,direction=1){
+  if(!Array.isArray(samples)||samples.length<2)throw Error('Geste trop court');
+  const end=samples[samples.length-1];
+  const begin=samples.find(v=>end.t-v.t<=110 && end.t-v.t>=18)||samples[Math.max(0,samples.length-2)];
+  const dx=end.x-begin.x,dy=end.y-begin.y;
+  const dt=Math.max(32,end.t-begin.t);
+  if(dy>-15)throw Error('Glisse nettement vers le haut');
+  const result=targetFromGesture(dx,dy,dt,startX,height,force,direction);
+  return {...result,dx,dy,elapsed:dt};
+}
+export function makeRoom(uid,name,avatar,mode=301,doubleOut=true,maxPlayers=3){
+  if(!Number.isInteger(maxPlayers)||maxPlayers<1||maxPlayers>4)throw Error('Nombre de joueurs invalide');
   if(![301,501].includes(mode))throw Error('Mode inconnu');
-  return {schema:1,createdAt:Date.now(),host:uid,mode,doubleOut:!!doubleOut,force:1,direction:1,status:'lobby',turn:0,seq:0,players:[{uid,name,avatar,score:mode,roundStart:mode,darts:0,roundHits:[]}],winner:'',lastHit:null,lastReaction:null};
+  return {schema:2,createdAt:Date.now(),host:uid,maxPlayers,mode,doubleOut:!!doubleOut,force:1,direction:1,status:'lobby',turn:0,seq:0,players:[{uid,name,avatar,score:mode,roundStart:mode,darts:0,roundHits:[]}],winner:'',lastHit:null,lastReaction:null};
 }
 export function addPlayer(room,uid,name,avatar){
   if(!room||room.status!=='lobby')throw Error('Cette partie a déjà commencé');
   if(room.players.some(p=>p.uid===uid))return room;
-  if(room.players.length>=3)throw Error('La salle est complète');
-  if(room.players.some(p=>p.avatar===avatar))throw Error('Ce personnage est déjà choisi');
+  if(room.players.length>=(room.maxPlayers||3))throw Error('La salle est complète');
+  if(avatar!=='invite'&&room.players.some(p=>p.avatar===avatar))throw Error('Ce personnage est déjà choisi');
   return {...room,players:[...room.players,{uid,name,avatar,score:room.mode,roundStart:room.mode,darts:0,roundHits:[]}]};
 }
 export function beginGame(room,uid){
   if(room.host!==uid)throw Error('Seul le créateur peut démarrer');
-  if(room.players.length!==3)throw Error('Il faut trois joueurs');
+  if(room.players.length!==(room.maxPlayers||3)||room.players.length<2)throw Error('Il manque des joueurs pour commencer');
   if(room.status!=='lobby'&&room.status!=='finished')throw Error('Partie déjà en cours');
   return {...room,status:'playing',turn:0,winner:'',lastHit:null,seq:(room.seq||0)+1,players:room.players.map(p=>({...p,score:room.mode,roundStart:room.mode,darts:0,roundHits:[]}))};
 }
@@ -60,7 +73,7 @@ export function applyThrow(room,uid,x,y){
   if(roundHits.length>=2&&roundHits.slice(-2).every(h=>h.points>=54))quip='I’m a Chairman !';
   current.score=bust?current.roundStart:remaining;
   const next={...room,players,seq:(room.seq||0)+1,
-    lastHit:{seq:(room.seq||0)+1,uid,x:Math.round(x*10000)/10000,y:Math.round(y*10000)/10000,...hit,bust,won,dartNumber,quip,at:Date.now()}};
+    lastHit:{seq:(room.seq||0)+1,uid,x:Math.round(x*10000)/10000,y:Math.round(y*10000)/10000,...hit,bust,won,dartNumber,turnTotal:roundHits.reduce((a,h)=>a+h.points,0),quip,at:Date.now()}};
   if(won){next.status='finished';next.winner=uid;}
   else if(bust||dartNumber>=3){next.turn=(idx+1)%players.length;players[next.turn].roundStart=players[next.turn].score;players[next.turn].darts=0;players[next.turn].roundHits=[];}
   return next;
